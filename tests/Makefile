@@ -1,3 +1,16 @@
+# K3S_<KUBE_MAJOR_RELEASE> as a "mapping" from KUBE_MAJOR_RELEASE to k3s tag
+K3S_V1_13=v0.3.0
+K3S_V1_14=v0.8.0
+K3S_V1_15=v0.9.0
+K3S_V1_16=v1.0.1
+K3S_V1_17=v1.17.0-k3s.1
+#
+# Since https://github.com/bitnami-labs/kube-libsonnet/issues/32 we support
+# kubernetes v1.14+ (Ingress apiVersion deprecated in v1.18, available since v1.14).
+#
+# Kubernetes releases we cover with e2e testing:
+E2E_K3S_VERSIONS=$(K3S_V1_14) $(K3S_V1_15) $(K3S_V1_16) $(K3S_V1_17)
+
 SHELL=/bin/bash
 JSONNET_FMT=--indent 2 --string-style d --comment-style s --no-pad-arrays --pad-objects --pretty-field-names
 
@@ -15,11 +28,11 @@ DOCKER_E2E=e2e-test
 TMP_RANCHER=./tmp-rancher
 PROJECT=kubelibsonnet
 
-tests: docker-compose-tests
+tests: $(patsubst %,e2e-tests-%,$(E2E_K3S_VERSIONS))
 
-docker-compose-tests: req-docker req-docker-compose
+e2e-tests-%: req-docker req-docker-compose
 	install -d $(TMP_RANCHER) $(TMP_RANCHER)/etc && touch $(TMP_RANCHER)/etc/k3s.yaml
-	USERID=$$(id -u) docker-compose -p $(PROJECT) up -d
+	env USERID=$$(id -u) K3S_VERSION=$(*) docker-compose -p $(PROJECT) up -d
 	rc=$$(timeout 60s docker wait $(DOCKER_E2E)) || rc=255 ;\
 	   test $$rc -ne 0 && docker logs k3s-api;\
 	   docker logs $(DOCKER_E2E);\
